@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Datacenter {
+  id       String  @id @default(uuid())
+  name     String
+  location String?
+  racks    Rack[]  @relation("DatacenterToRack")
+}
+
+model Rack {
+  id             String          @id @default(uuid())
+  name           String
+  unitsTotal     Int             @default(42)
+  datacenterId   String
+  datacenter     Datacenter      @relation("DatacenterToRack", fields: [datacenterId], references: [id])
+  servers        Server[]        @relation("RackToServer")
+  networkDevices NetworkDevice[] @relation("RackToNetworkDevice")
+}
+
+model Server {
+  id             String   @id @default(uuid())
+  assetTag       String   @unique
+  serialNumber   String?
+  status         String   @default("New")
+  rackId         String?
+  rack           Rack?    @relation("RackToServer", fields: [rackId], references: [id])
+  rackUStart     Int?
+  rackUSize      Int?     @default(1)
+  ipAddress      String?
+  
+  cpuModel       String?
+  cpuCores       Int?
+  ramGb          Int?
+  storageGb      Int?
+
+  managementIp   String?
+  managementUser String?
+  managementPass String?
+
+  platformId     String?
+  platform       CatalogServerPlatform? @relation(fields: [platformId], references: [id])
+
+  processors     ServerProcessor[]
+  rams           ServerRam[]
+  disks          ServerDisk[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model CatalogServerPlatform {
+  id              String   @id @default(uuid())
+  manufacturer    String
+  model           String
+  socket          String
+  socketNum       Int      @default(1)
+  ramType         String
+  ramSlots        Int
+  heightU         Int
+  remoteMgmtType  String   
+  servers         Server[]
+  pcieSlots       PlatformPcieSlot[]
+  diskSlots       PlatformDiskSlot[]
+
+  @@unique([manufacturer, model])
+}
+
+model PlatformPcieSlot {
+  id            String   @id @default(uuid())
+  platformId    String
+  platform      CatalogServerPlatform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  version       String   // e.g. "PCI-E 4.0"
+  width         String   // e.g. "x16"
+  heightProfile String   @default("FH") // FH / HH
+  lengthProfile String   @default("FL") // FL / HL
+}
+
+model PlatformDiskSlot {
+  id          String   @id @default(uuid())
+  platformId  String
+  platform    CatalogServerPlatform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  quantity    Int      @default(1)
+  interface   String   // e.g. "NVMe"
+}
+
+model CatalogProcessor {
+  id               String   @id @default(uuid())
+  manufacturer     String
+  model            String
+  socket           String
+  cores            Int
+  frequencyGhz     Float
+  serverProcessors ServerProcessor[]
+}
+
+model CatalogRam {
+  id               String   @id @default(uuid())
+  manufacturer     String?
+  ramType          String
+  capacityGb       Int
+  serverRams       ServerRam[]
+}
+
+model CatalogDisk {
+  id               String   @id @default(uuid())
+  manufacturer     String?
+  storageType      String   @default("SSD")
+  formFactor       String
+  capacityGb       Int
+  interface        String
+  serverDisks      ServerDisk[]
+}
+
+model ServerProcessor {
+  id          String   @id @default(uuid())
+  quantity    Int      @default(1)
+  serverId    String
+  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  processorId String
+  processor   CatalogProcessor @relation(fields: [processorId], references: [id])
+}
+
+model ServerRam {
+  id          String   @id @default(uuid())
+  quantity    Int      @default(1)
+  serverId    String
+  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  ramId       String
+  ram         CatalogRam @relation(fields: [ramId], references: [id])
+}
+
+model ServerDisk {
+  id          String   @id @default(uuid())
+  quantity    Int      @default(1)
+  serverId    String
+  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  diskId      String
+  disk        CatalogDisk @relation(fields: [diskId], references: [id])
+}
+
+model CatalogAttribute {
+  id        String   @id @default(uuid())
+  type      String   
+  value     String   
+  createdAt DateTime @default(now())
+}
+
+model NetworkDevice {
+  id             String   @id @default(uuid())
+  hostname       String   @unique
+  type           String   
+  ipAddress      String?
+  managementIp   String?
+  managementUser String?
+  managementPass String?
+  portsTotal     Int?     @default(24)
+  
+  rackId         String?
+  rack           Rack?    @relation("RackToNetworkDevice", fields: [rackId], references: [id])
+  rackUStart     Int?
+  rackUSize      Int?     @default(1)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
